@@ -9,3 +9,5 @@ jiwer
 tqdm
 jupyter
 ipykernel
+streamlit
+soundfile
