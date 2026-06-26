@@ -9,146 +9,110 @@ import torch.nn as nn
 import librosa
 import numpy as np
 
+SAMPLE_RATE = 16000
+N_MFCC = 40
+N_FFT = 400       # 25 ms at 16 kHz
+HOP_LENGTH = 160  # 10 ms at 16 kHz
+NUM_CLASSES = 30  # 28 chars + blank (0) + unused padding index
+
+CHARACTERS = list("abcdefghijklmnopqrstuvwxyz '")
+CHAR_TO_INDEX = {c: i + 1 for i, c in enumerate(CHARACTERS)}
+INDEX_TO_CHAR = {i: c for c, i in CHAR_TO_INDEX.items()}
+
 
 class SpeechRecognitionModel(nn.Module):
     """LSTM-based Speech Recognition Model"""
-    
-    def __init__(self, input_size=40, hidden_size=256, num_layers=2):
-        super(SpeechRecognitionModel, self).__init__()
-        
+
+    def __init__(self, input_size=N_MFCC, hidden_size=256, num_layers=2, dropout=0.2):
+        super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
-            bidirectional=True
+            bidirectional=True,
+            dropout=dropout if num_layers > 1 else 0.0,
         )
-        
-        self.fc = nn.Linear(hidden_size * 2, 30)
-    
+        self.fc = nn.Linear(hidden_size * 2, NUM_CLASSES)
+
     def forward(self, x):
         out, _ = self.lstm(x)
-        out = self.fc(out)
-        return out
+        return self.fc(out)
 
 
-# Character vocabulary (same as training)
-CHARACTERS = list("abcdefghijklmnopqrstuvwxyz '")
-CHAR_TO_INDEX = {c: i+1 for i, c in enumerate(CHARACTERS)}
-INDEX_TO_CHAR = {i: c for c, i in CHAR_TO_INDEX.items()}
+def normalize_mfcc(mfcc):
+    """Per-utterance MFCC normalization."""
+    return (mfcc - mfcc.mean()) / (mfcc.std() + 1e-8)
 
 
-def extract_mfcc(audio_path=None, audio_data=None, sr=None):
+def extract_mfcc(audio_path=None, audio_data=None, sr=None, normalize=True):
     """
-    Extract MFCC features from audio file or audio data
-    
-    Args:
-        audio_path: Path to audio file (if provided)
-        audio_data: Audio data array (if provided)
-        sr: Sampling rate (if audio_data provided)
-    
+    Extract MFCC features from audio file or audio data.
+
     Returns:
         MFCC features (40, time_frames)
     """
     if audio_path:
-        # Load audio at 16kHz
-        audio, sr = librosa.load(audio_path, sr=16000)
+        audio, sr = librosa.load(audio_path, sr=SAMPLE_RATE)
     elif audio_data is not None:
         audio = audio_data
         if sr is None:
-            sr = 16000
-        # Resample to 16kHz if needed
-        if sr != 16000:
-            audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
-            sr = 16000
+            sr = SAMPLE_RATE
+        if sr != SAMPLE_RATE:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
+            sr = SAMPLE_RATE
     else:
         raise ValueError("Either audio_path or audio_data must be provided")
-    
-    # Extract MFCC features
+
     mfcc = librosa.feature.mfcc(
         y=audio,
         sr=sr,
-        n_mfcc=40
+        n_mfcc=N_MFCC,
+        n_fft=N_FFT,
+        hop_length=HOP_LENGTH,
     )
-    
+    if normalize:
+        mfcc = normalize_mfcc(mfcc)
     return mfcc
 
 
+def encode_text(text):
+    return [CHAR_TO_INDEX[c] for c in text if c in CHAR_TO_INDEX]
+
+
 def load_model(model_path="model/lstm_ctc_model.pth"):
-    """
-    Load the trained model
-    
-    Args:
-        model_path: Path to the saved model
-    
-    Returns:
-        Loaded model in evaluation mode
-    """
+    """Load the trained model."""
     model = SpeechRecognitionModel()
-    
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, map_location='cpu'))
+        model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
         model.eval()
         return model
-    else:
-        raise FileNotFoundError(f"Model not found at {model_path}. Please ensure the model is trained and saved.")
+    raise FileNotFoundError(
+        f"Model not found at {model_path}. Please train the model first (python train.py)."
+    )
 
 
 def decode_prediction(output):
-    """
-    Decode model output using CTC decoding
-    
-    Args:
-        output: Model output tensor (batch_size, time_steps, num_classes)
-    
-    Returns:
-        Decoded text string
-    """
+    """Decode model output using greedy CTC decoding."""
     predicted_indices = torch.argmax(output, dim=2)
-    
     predicted_text = ""
     previous = None
-    
+
     for idx in predicted_indices[0]:
         idx = idx.item()
-        
-        # Skip repeated characters (CTC rule)
-        if idx != previous:
-            if idx in INDEX_TO_CHAR:
-                predicted_text += INDEX_TO_CHAR[idx]
-        
+        if idx != previous and idx in INDEX_TO_CHAR:
+            predicted_text += INDEX_TO_CHAR[idx]
         previous = idx
-    
+
     return predicted_text.strip()
 
 
 def predict_from_audio(model, audio_path=None, audio_data=None, sr=None):
-    """
-    Complete pipeline: Extract MFCC → Predict → Decode
-    
-    Args:
-        model: Loaded SpeechRecognitionModel
-        audio_path: Path to audio file (if provided)
-        audio_data: Audio data array (if provided)
-        sr: Sampling rate (if audio_data provided)
-    
-    Returns:
-        Predicted text string
-    """
-    # Extract MFCC features
-    mfcc = extract_mfcc(audio_path=audio_path, audio_data=audio_data, sr=sr)
-    
-    # Transpose for LSTM input: (time_steps, features)
-    mfcc_input = mfcc.T
-    
-    # Convert to tensor and add batch dimension
-    mfcc_tensor = torch.tensor(mfcc_input).unsqueeze(0).float()
-    
-    # Run model
+    """Extract MFCC, run model, decode text."""
+    mfcc = extract_mfcc(audio_path=audio_path, audio_data=audio_data, sr=sr, normalize=True)
+    mfcc_tensor = torch.tensor(mfcc.T).unsqueeze(0).float()
+
     with torch.no_grad():
         output = model(mfcc_tensor)
-    
-    # Decode prediction
-    predicted_text = decode_prediction(output)
-    
-    return predicted_text
+
+    return decode_prediction(output)

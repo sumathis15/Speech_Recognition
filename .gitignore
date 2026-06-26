@@ -6,3 +6,7 @@ __pycache__/
 .ipynb_checkpoints
 data/
 venv/
+.venv/
+train.log
+train_err.log
+model/*.pth
