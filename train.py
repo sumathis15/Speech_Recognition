@@ -132,6 +132,16 @@ def parse_args():
     parser.add_argument("--data-path", default=DEFAULT_DATA_PATH, help="LibriSpeech train-clean-100 path")
     parser.add_argument("--model-path", default=DEFAULT_MODEL_PATH, help="Output model path")
     parser.add_argument("--best-model-path", default=DEFAULT_BEST_MODEL_PATH, help="Best checkpoint path")
+    parser.add_argument(
+        "--checkpoint-dir",
+        default=None,
+        help="If set, save latest weights here after every epoch (use Google Drive path on Colab)",
+    )
+    parser.add_argument(
+        "--save-epoch-checkpoints",
+        action="store_true",
+        help="Also save epoch_01.pth, epoch_02.pth, ... in checkpoint-dir (uses more disk space)",
+    )
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -154,7 +164,13 @@ def main():
             "Download LibriSpeech train-clean-100 into data/raw/LibriSpeech/."
         )
 
-    os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+    for path in (args.model_path, args.best_model_path):
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+    if args.checkpoint_dir:
+        os.makedirs(args.checkpoint_dir, exist_ok=True)
+        print(f"Checkpoint dir: {args.checkpoint_dir}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -216,6 +232,15 @@ def main():
             best_cer = val_cer
             torch.save(model.state_dict(), args.best_model_path)
             print(f"  -> Saved best model (CER={best_cer:.4f}) to {args.best_model_path}")
+
+        if args.checkpoint_dir:
+            latest_path = os.path.join(args.checkpoint_dir, "latest_epoch.pth")
+            torch.save(model.state_dict(), latest_path)
+            print(f"  -> Saved latest epoch to {latest_path}")
+            if args.save_epoch_checkpoints:
+                epoch_path = os.path.join(args.checkpoint_dir, f"epoch_{epoch:02d}.pth")
+                torch.save(model.state_dict(), epoch_path)
+                print(f"  -> Saved epoch checkpoint to {epoch_path}")
 
     torch.save(model.state_dict(), args.model_path)
     print(f"\nTraining complete.")
