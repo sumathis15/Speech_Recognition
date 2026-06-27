@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import random
 import time
@@ -127,6 +128,44 @@ def train_epoch(model, loader, optimizer, ctc_loss, device, grad_clip):
     return total_loss / max(len(loader), 1)
 
 
+def save_training_state(checkpoint_dir, epoch, best_cer, model, optimizer, scheduler):
+    """Full training state for resume after disconnect."""
+    path = os.path.join(checkpoint_dir, "training_state.pt")
+    torch.save(
+        {
+            "epoch": epoch,
+            "best_cer": best_cer,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+        },
+        path,
+    )
+    meta_path = os.path.join(checkpoint_dir, "resume.json")
+    with open(meta_path, "w", encoding="utf-8") as handle:
+        json.dump({"last_completed_epoch": epoch, "best_cer": best_cer}, handle, indent=2)
+
+
+def load_training_state(checkpoint_dir, model, optimizer, scheduler, device):
+    """Load full state if available. Returns (start_epoch, best_cer) or None."""
+    state_path = os.path.join(checkpoint_dir, "training_state.pt")
+    if not os.path.exists(state_path):
+        return None
+
+    checkpoint = torch.load(state_path, map_location=device, weights_only=False)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+    last_epoch = int(checkpoint["epoch"])
+    best_cer = float(checkpoint["best_cer"])
+    return last_epoch + 1, best_cer
+
+
+def load_weights_only(resume_path, model, device):
+    """Load model weights from .pth when full training_state.pt is missing."""
+    model.load_state_dict(torch.load(resume_path, map_location=device, weights_only=True))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train LSTM-CTC speech recognition model")
     parser.add_argument("--data-path", default=DEFAULT_DATA_PATH, help="LibriSpeech train-clean-100 path")
@@ -141,6 +180,23 @@ def parse_args():
         "--save-epoch-checkpoints",
         action="store_true",
         help="Also save epoch_01.pth, epoch_02.pth, ... in checkpoint-dir (uses more disk space)",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint-dir/training_state.pt (or latest_epoch.pth + --start-epoch)",
+    )
+    parser.add_argument(
+        "--start-epoch",
+        type=int,
+        default=None,
+        help="Epoch to start from when resuming (e.g. 22 if epoch 21 finished)",
+    )
+    parser.add_argument(
+        "--initial-best-cer",
+        type=float,
+        default=None,
+        help="Best CER so far when resuming from weights-only checkpoint",
     )
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=16)
@@ -209,9 +265,64 @@ def main():
     )
 
     best_cer = float("inf")
-    print(f"\nStarting training for {args.epochs} epochs (batch_size={args.batch_size})...\n")
+    start_epoch = 1
 
-    for epoch in range(1, args.epochs + 1):
+    if args.resume:
+        if not args.checkpoint_dir:
+            raise ValueError("--resume requires --checkpoint-dir")
+
+        resumed = load_training_state(
+            args.checkpoint_dir, model, optimizer, scheduler, device
+        )
+        if resumed:
+            start_epoch, best_cer = resumed
+            print(
+                f"Resumed full state from training_state.pt — "
+                f"starting epoch {start_epoch}, best CER={best_cer:.4f}"
+            )
+        else:
+            latest_path = os.path.join(args.checkpoint_dir, "latest_epoch.pth")
+            if not os.path.exists(latest_path):
+                raise FileNotFoundError(
+                    f"No checkpoint found in {args.checkpoint_dir}. "
+                    "Need training_state.pt or latest_epoch.pth"
+                )
+            load_weights_only(latest_path, model, device)
+            meta_path = os.path.join(args.checkpoint_dir, "resume.json")
+            if args.start_epoch is not None:
+                start_epoch = args.start_epoch
+            elif os.path.exists(meta_path):
+                with open(meta_path, encoding="utf-8") as handle:
+                    meta = json.load(handle)
+                start_epoch = int(meta["last_completed_epoch"]) + 1
+                if args.initial_best_cer is None:
+                    best_cer = float(meta["best_cer"])
+            else:
+                raise ValueError(
+                    "Weights-only resume: pass --start-epoch 22 (next epoch after last completed)"
+                )
+            if args.initial_best_cer is not None:
+                best_cer = args.initial_best_cer
+            print(
+                f"Resumed weights from latest_epoch.pth — "
+                f"starting epoch {start_epoch}, best CER={best_cer:.4f}"
+            )
+
+    if start_epoch > args.epochs:
+        print(f"Already completed {start_epoch - 1}/{args.epochs} epochs. Nothing to do.")
+        if os.path.exists(args.best_model_path):
+            torch.save(
+                torch.load(args.best_model_path, map_location="cpu", weights_only=True),
+                args.model_path,
+            )
+        return
+
+    print(
+        f"\nTraining epochs {start_epoch}–{args.epochs} "
+        f"(batch_size={args.batch_size})...\n"
+    )
+
+    for epoch in range(start_epoch, args.epochs + 1):
         epoch_start = time.time()
         train_loss = train_epoch(
             model, train_loader, optimizer, ctc_loss, device, args.grad_clip
@@ -236,7 +347,10 @@ def main():
         if args.checkpoint_dir:
             latest_path = os.path.join(args.checkpoint_dir, "latest_epoch.pth")
             torch.save(model.state_dict(), latest_path)
-            print(f"  -> Saved latest epoch to {latest_path}")
+            save_training_state(
+                args.checkpoint_dir, epoch, best_cer, model, optimizer, scheduler
+            )
+            print(f"  -> Saved latest + training_state (epoch {epoch})")
             if args.save_epoch_checkpoints:
                 epoch_path = os.path.join(args.checkpoint_dir, f"epoch_{epoch:02d}.pth")
                 torch.save(model.state_dict(), epoch_path)
