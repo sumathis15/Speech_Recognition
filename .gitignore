@@ -4,7 +4,10 @@ __pycache__/
 *.pt
 .env
 .ipynb_checkpoints
-data/
+data/*
+!data/README.md
+!data/test_upload/
+!data/test_upload/**
 venv/
 .venv/
 train.log

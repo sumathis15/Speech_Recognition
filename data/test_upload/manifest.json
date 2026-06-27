@@ -1,0 +1,62 @@
+[
+  {
+    "file": "test_clean_01.flac",
+    "transcript_file": "test_clean_01.txt",
+    "librispeech_id": "908-31957-0025",
+    "transcript": "i love thee with a love i seemed to lose with my lost saints i love thee with the breath smiles tears of all my life and if god choose i shall but love thee better after death"
+  },
+  {
+    "file": "test_clean_02.flac",
+    "transcript_file": "test_clean_02.txt",
+    "librispeech_id": "1995-1826-0017",
+    "transcript": "there might be a bit of poetry here and there but most of this place was such desperate prose"
+  },
+  {
+    "file": "test_clean_03.flac",
+    "transcript_file": "test_clean_03.txt",
+    "librispeech_id": "1188-133604-0038",
+    "transcript": "but now here is a subject of which you will wonder at first why turner drew it at all"
+  },
+  {
+    "file": "test_clean_04.flac",
+    "transcript_file": "test_clean_04.txt",
+    "librispeech_id": "4446-2271-0013",
+    "transcript": "do you know i thought the dance a bit conscious to night for the first time"
+  },
+  {
+    "file": "test_clean_05.flac",
+    "transcript_file": "test_clean_05.txt",
+    "librispeech_id": "3575-170457-0033",
+    "transcript": "saturday after saturday comes round and i can have no hope of hearing your knock at the door and then being told that miss e is come oh dear"
+  },
+  {
+    "file": "test_clean_06.flac",
+    "transcript_file": "test_clean_06.txt",
+    "librispeech_id": "2961-961-0017",
+    "transcript": "observe again what care the law took in the pursuit of wisdom searching out the deep things of the world and applying them to the use of man"
+  },
+  {
+    "file": "test_clean_07.flac",
+    "transcript_file": "test_clean_07.txt",
+    "librispeech_id": "2094-142345-0060",
+    "transcript": "oh i've no doubt it's in capital order"
+  },
+  {
+    "file": "test_clean_08.flac",
+    "transcript_file": "test_clean_08.txt",
+    "librispeech_id": "1580-141084-0031",
+    "transcript": "we want to know mister gilchrist how you an honourable man ever came to commit such an action as that of yesterday"
+  },
+  {
+    "file": "test_clean_09.flac",
+    "transcript_file": "test_clean_09.txt",
+    "librispeech_id": "7729-102255-0000",
+    "transcript": "the bogus legislature numbered thirty six members"
+  },
+  {
+    "file": "test_clean_10.flac",
+    "transcript_file": "test_clean_10.txt",
+    "librispeech_id": "1580-141083-0022",
+    "transcript": "i am afraid there are no signs here said he"
+  }
+]

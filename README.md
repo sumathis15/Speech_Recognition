@@ -1,180 +1,180 @@
 # Sentence-Level Speech Recognition using LSTM Networks
 
-## 🎯 Project Overview
+## Project Overview
 
-This project implements a **Sentence-Level Speech Recognition System** using LSTM (Long Short-Term Memory) neural networks for real-time video subtitle generation and live captioning.
+This project implements a **Sentence-Level Speech Recognition System** using LSTM neural networks for live captioning / subtitle generation.
 
-### Business Use Cases
-- **Intelligent Live Captioning System** for Online Video Streaming
-- **Real-Time Video Subtitle Generation** Using LSTM-Based Speech Recognition
+**Flow:** Audio in → MFCC features → LSTM + CTC → text out
 
-## 🛠️ Technologies Used
+## Technologies
 
-- **Python** - Programming language
-- **PyTorch** - Deep learning framework
-- **Librosa** - Audio processing and MFCC extraction
-- **Streamlit** - Web application framework for prototype
-- **NumPy, Pandas** - Data processing
-- **Jupyter** - Interactive development and analysis
+- Python, PyTorch, Librosa, Streamlit, scikit-learn, jiwer
 
-## 📊 Model Architecture
+## Model Architecture
 
-- **Type:** LSTM (Long Short-Term Memory) Network
-- **Architecture:** Bidirectional, 2 layers, 256 hidden units
-- **Input Features:** MFCC (Mel Frequency Cepstral Coefficients) - 40 features
-- **Output:** Character-level predictions (28 character vocabulary: a-z, space, apostrophe)
-- **Loss Function:** CTC (Connectionist Temporal Classification)
-- **Training:** 15 epochs on 8000 samples from LibriSpeech dataset
+| Component | Detail |
+|-----------|--------|
+| Model | Bidirectional LSTM, 2 layers, 256 hidden units |
+| Input | 40 MFCC features (16 kHz mono) |
+| Output | Character-level (a–z, space, apostrophe) + CTC blank |
+| Loss | CTC (Connectionist Temporal Classification) |
+| Training | Full LibriSpeech `train-clean-100` (~28k clips) |
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Speech_Recognition/
-├── data/
-│   ├── raw/
-│   │   └── LibriSpeech/
-│   │       └── train-clean-100/
-│   └── processed/
-├── model/
-│   └── lstm_ctc_model.pth          # Trained model weights
+├── app.py                          # Streamlit demo
+├── train.py                        # Full-dataset training script
+├── model_utils.py                  # Model, MFCC, predict
+├── scripts/
+│   └── export_test_upload_samples.py  # Export test-clean clips for app testing
 ├── notebooks/
-│   └── speech_recognition.ipynb    # Training and analysis notebook
-├── app.py                          # Streamlit web application
-├── model_utils.py                  # Model utilities and inference functions
-├── requirements.txt                # Python dependencies
-└── README.md                       # This file
+│   ├── speech_recognition.ipynb    # Learning notebook
+│   └── colab_train.ipynb           # Colab GPU training
+├── data/
+│   ├── README.md
+│   ├── raw/LibriSpeech/            # Full dataset (gitignored)
+│   └── test_upload/                # Held-out test clips (in Git)
+│       ├── test_clean_01.flac
+│       ├── test_clean_01.txt       # ground truth transcript
+│       └── manifest.json
+├── model/
+│   └── lstm_ctc_model.pth          # Trained weights (gitignored — you add locally)
+└── requirements.txt
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
-### Prerequisites
+### 1. Install
 
-- Python 3.8 or higher
-- pip (Python package manager)
-
-### Installation
-
-1. **Clone or navigate to the project directory:**
-   ```bash
-   cd C:\Speech_Recognition
-   ```
-
-2. **Create a virtual environment (recommended):**
-   ```powershell
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   ```
-
-3. **Install dependencies:**
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
-### Running the Streamlit Application
-
-1. **Activate the virtual environment** (if not already activated):
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   ```
-
-2. **Run the Streamlit app:**
-   ```powershell
-   streamlit run app.py
-   ```
-
-3. **The app will open in your browser** at `http://localhost:8501`
-
-## 📖 Usage Guide
-
-### Streamlit Application Features
-
-1. **Audio Input:**
-   - Upload audio files (WAV, MP3, FLAC, M4A, OGG)
-   - Record audio directly in the browser
-
-2. **Transcription:**
-   - Click "Transcribe Audio" to generate subtitles
-   - View the generated text/caption
-
-3. **Evaluation Metrics:**
-   - Enter ground truth text to calculate:
-     - Word Error Rate (WER)
-     - Character Error Rate (CER)
-     - Sentence Accuracy
-
-4. **Visualization:**
-   - Audio waveform visualization
-   - MFCC feature visualization
-
-### Using the Model Programmatically
-
-```python
-from model_utils import load_model, predict_from_audio
-
-# Load the trained model
-model = load_model("model/lstm_ctc_model.pth")
-
-# Predict from audio file
-predicted_text = predict_from_audio(model, audio_path="path/to/audio.wav")
-
-print(f"Transcribed text: {predicted_text}")
+```powershell
+cd C:\Speech_Recognition
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-## 📊 Evaluation Metrics
+### 2. Add the trained model
 
-The model is evaluated using:
+Place your trained weights at:
 
-- **Word Error Rate (WER):** Measures word-level accuracy
-- **Character Error Rate (CER):** Measures character-level accuracy
-- **Sentence Accuracy:** Exact match percentage
+```
+model/lstm_ctc_model.pth
+```
 
-## 📚 Dataset
+(Train locally with `python train.py` or on Colab — see `notebooks/colab_train.ipynb`.)
 
-- **LibriSpeech** (train-clean-100 subset)
-  - Standard ASR (Automatic Speech Recognition) dataset
-  - Audio format: Mono, 16 kHz sampling rate, FLAC files
-  - Contains read English speech from audiobooks
+### 3. Run the app
 
-## 🔧 Model Training
+```powershell
+streamlit run app.py
+```
 
-The model training process is documented in `notebooks/speech_recognition.ipynb`:
-
-1. Data loading and preprocessing
-2. MFCC feature extraction
-3. Model architecture definition
-4. Training with CTC loss
-5. Model evaluation and testing
-
-## 📝 Project Deliverables
-
-✅ Cleaned and preprocessed data  
-✅ Deep learning model (LSTM with CTC)  
-✅ Performance evaluation reports  
-✅ Jupyter notebooks with documented analysis  
-✅ Streamlit prototype for real-time captioning  
-
-## 🐛 Troubleshooting
-
-### Model Not Found Error
-- Ensure the trained model exists at `model/lstm_ctc_model.pth`
-- If missing, train the model using the Jupyter notebook first
-
-### Audio Loading Issues
-- Ensure audio files are in supported formats (WAV, MP3, FLAC, etc.)
-- Check that librosa can read the audio file
-
-### Long Path Error (Windows)
-- Enable Windows Long Path support (see project documentation)
-- Or use shorter paths for the project directory
-
-## 📄 License
-
-This project is part of the GUVI HCL Skill Up program.
-
-## 👥 Author
-
-Developed as part of the Final Project 2 - 2026 requirements.
+Open http://localhost:8501
 
 ---
 
-**Note:** This is a prototype for demonstration purposes. For production use, additional optimization and testing would be required.
+## How to test fairly (important)
+
+### Use `data/test_upload/` — not training clips, not random mic tests
+
+| Audio source | Good for evaluation? | Why |
+|--------------|---------------------|-----|
+| **`data/test_upload/*.flac`** | **Yes — recommended** | Official LibriSpeech **test-clean** — never used in training |
+| Clips from `train-clean-100` | Misleading | Model trained on these — looks better than it is |
+| Your own voice / laptop mic | Often poor | Different mic, accent, casual speech vs read audiobooks |
+
+The model was trained on **read English audiobook speech** (LibriSpeech). It is normal for your own voice to perform worse than test-clean clips.
+
+### Test in Streamlit
+
+1. Run `streamlit run app.py`
+2. **Upload Audio File** → pick e.g. `data/test_upload/test_clean_01.flac`
+3. Click **Transcribe Audio**
+4. Open `data/test_upload/test_clean_01.txt` and compare to the prediction
+
+All ground-truth transcripts are in `data/test_upload/manifest.json`.
+
+### Regenerate test samples
+
+Requires a one-time download of LibriSpeech **test-clean** (~346 MB):
+
+```powershell
+python scripts/export_test_upload_samples.py --download --num-samples 10
+```
+
+This creates 10 random clips from the official test set in `data/test_upload/`. Only this small folder is committed to Git — not the full dataset.
+
+---
+
+## Dataset splits (LibriSpeech)
+
+| Split | Used for | In this project |
+|-------|----------|-----------------|
+| **train-clean-100** | Training | `train.py` / Colab training |
+| **test-clean** | Final evaluation | `data/test_upload/` export script |
+| Validation (10%) | During training | Random holdout inside `train.py` |
+
+Download links (OpenSLR resource 12):
+
+- Train: http://www.openslr.org/resources/12/train-clean-100.tar.gz (~6.3 GB)
+- Test: http://www.openslr.org/resources/12/test-clean.tar.gz (~346 MB)
+
+---
+
+## Training
+
+**Local:**
+
+```powershell
+python train.py --epochs 30 --batch-size 16
+```
+
+**Colab (GPU):** see `notebooks/colab_train.ipynb`
+
+**Resume after disconnect:**
+
+```powershell
+python train.py --resume --start-epoch 22 --checkpoint-dir path/to/checkpoints ...
+```
+
+See `Speech Recognition Guide.md` for full details.
+
+---
+
+## Evaluation metrics
+
+- **WER** — Word Error Rate (lower is better)
+- **CER** — Character Error Rate (lower is better)
+
+Reported during training on the validation split. Use `test_upload/` clips for manual demo testing.
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Model not found | Add `model/lstm_ctc_model.pth` |
+| Own voice works poorly | Expected — try `data/test_upload/` clips |
+| Training clip works great | Expected — that data was in training set |
+| Audio load error | Use WAV, MP3, FLAC, M4A, or OGG |
+
+---
+
+## Documentation
+
+| File | Content |
+|------|---------|
+| `Speech Recognition Guide.md` | Full project learning guide |
+| `Project Comparison Guide.md` | vs Fashion recommendation project |
+| `data/test_upload/README.md` | Test sample usage |
+
+---
+
+## License / author
+
+Part of the GUVI HCL Skill Up program — Final Project 2, 2026.
+
+**Note:** Prototype for demonstration. Not production ASR quality.
