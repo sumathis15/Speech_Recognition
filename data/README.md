@@ -2,27 +2,36 @@
 
 | Folder | In Git? | Purpose |
 |--------|---------|---------|
-| `raw/LibriSpeech/` | No (too large) | Full LibriSpeech download for training |
-| `test_upload/` | **Yes** | Small held-out test clips for app demos |
+| `test_upload/` | **Yes** | Small held-out test clips for Streamlit app demos |
+| `raw/` | No | Download only when training (not kept locally by default) |
 
-## Training data
+## Test the app (recommended)
 
-Download **train-clean-100** for training (~6.3 GB):
+Use files in **`test_upload/`** — LibriSpeech **test-clean** clips the model never trained on.
 
-http://www.openslr.org/resources/12/train-clean-100.tar.gz
-
-Extract to `data/raw/LibriSpeech/train-clean-100/`.
-
-## Test data for the app
-
-**Do not test with training clips** — the model has seen those during training.
-
-Use **`test_upload/`** instead. These clips come from LibriSpeech **test-clean** (official held-out test set, never used in training).
-
-To regenerate:
-
-```bash
-python scripts/export_test_upload_samples.py --download
+```powershell
+streamlit run app.py
+# Upload: data/test_upload/test_clean_01.flac
+# Compare to: data/test_upload/test_clean_01.txt
 ```
 
-See `test_upload/README.md` for how to use the samples in Streamlit.
+See `test_upload/README.md` and `manifest.json`.
+
+## Training data (download when needed)
+
+Not stored in this repo. Download on Colab or locally only if retraining:
+
+| Split | URL | Size |
+|-------|-----|------|
+| train-clean-100 | http://www.openslr.org/resources/12/train-clean-100.tar.gz | ~6.3 GB |
+| test-clean (for export script) | http://www.openslr.org/resources/12/test-clean.tar.gz | ~346 MB |
+
+Extract to `data/raw/LibriSpeech/`.
+
+Regenerate test upload samples:
+
+```powershell
+python scripts/export_test_upload_samples.py --download --num-samples 10
+```
+
+This writes to `test_upload/` only; you can delete `data/raw/` afterward to save disk space.
